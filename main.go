@@ -54,8 +54,8 @@ type Game struct {
 	debugMsg string
 }
 
-func NewGame() *Game {
-	game := &Game{
+func NewGame() Game {
+	game := Game{
 		car:      NewCar(),
 		score:    0,
 		gameOver: false,
@@ -71,12 +71,11 @@ func NewGame() *Game {
 
 	return game
 }
-
 func randomColor() rl.Color {
 	return garageColors[rand.Intn(len(garageColors))]
 }
 
-func (g *Game) draw() {
+func (g Game) draw() {
 	// Draw stripes on the road
 	for i := 0; i < numLanes; i++ {
 		rl.DrawRectangle(0, int32(i*laneHeight), screenWidth, 2, rl.White)
@@ -84,7 +83,6 @@ func (g *Game) draw() {
 
 	// Draw garages
 	for _, garage := range g.garages {
-		rl.DrawRectangle(int32(screenWidth-150), int32(garage.lane*laneHeight), 150, int32(laneHeight), garage.color)
 		rl.DrawTexture(garageTexture, int32(screenWidth-150), int32(garage.lane*laneHeight), garage.color)
 	}
 
@@ -104,7 +102,7 @@ func (g *Game) update() {
 
 	if g.gameOver {
 		if rl.IsKeyPressed(rl.KeyEnter) {
-			*g = *NewGame()
+			*g = NewGame()
 		}
 		return
 	}
@@ -143,7 +141,6 @@ func (g *Game) update() {
 
 	rl.DrawText(g.debugMsg, 20, 100, 32, rl.Red)
 }
-
 func main() {
 	rl.InitWindow(screenWidth, screenHeight, "Dikke Vette Cargame voor Milo")
 	rl.InitAudioDevice()
