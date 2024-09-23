@@ -3,234 +3,153 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 const (
-	SQUARE_SIZE  int32 = 200
-	FPS_TARGET   int32 = 60
-	GARAGE_COUNT int32 = 5
+	screenWidth  = 1600
+	screenHeight = 800
+	numLanes     = 5
+	numGarages   = 5
+	carSpeed     = 5
+	laneHeight   = screenHeight / numLanes
+)
+
+var (
+	garageColors  = [numGarages]rl.Color{rl.Red, rl.Blue, rl.Green, rl.Yellow, rl.Purple}
+	autoHappy     rl.Sound
+	autoSad       rl.Sound
+	autoTexture   rl.Texture2D
+	garageTexture rl.Texture2D
 )
 
 type Car struct {
-	position  rl.Vector2
-	size      rl.Vector2
-	color     rl.Color
-	direction int32
+	texture rl.Texture2D
+	lane    int
+	color   rl.Color
+	xPos    int
 }
 
 type Garage struct {
-	position rl.Vector2
-	size     rl.Vector2
-	color    rl.Color
+	lane  int
+	color rl.Color
 }
 
-type GameState struct {
-	score         int32
-	car           Car
-	framesCounter int32
-	gameOver      bool
-	pause         bool
-	allowMove     bool
-	garages       []Garage
+type Game struct {
+	car      Car
+	garages  [numGarages]Garage
+	score    int
+	gameOver bool
 }
 
-var (
-	screenWidth  int32 = 1600
-	screenHeight int32 = 1000
+func NewCar() Car {
+	return Car{
+		texture: autoTexture,
+		lane:    rand.Intn(numLanes),
+		color:   randomColor(),
+		xPos:    25,
+	}
+}
 
-	autoTexture   rl.Texture2D
-	autoHappy     rl.Sound
-	autoSad       rl.Sound
-	garageColors        = []rl.Color{rl.Red, rl.Green, rl.Blue, rl.Yellow, rl.Purple}
-	gameState     GameState
-	offset        rl.Vector2
-)
+func NewGame() *Game {
+	game := &Game{
+		car:      NewCar(),
+		score:    0,
+		gameOver: false,
+	}
+
+	// Initialize garages
+	for i := range game.garages {
+		game.garages[i] = Garage{
+			lane:  i,
+			color: garageColors[i],
+		}
+	}
+
+	return game
+}
+
+func randomColor() rl.Color {
+	return garageColors[rand.Intn(len(garageColors))]
+}
+
+func (g *Game) draw() {
+	// Draw garages
+	for _, garage := range g.garages {
+		rl.DrawRectangle(int32(screenWidth-150), int32(garage.lane*laneHeight), 150, int32(laneHeight), garage.color)
+		rl.DrawTexture(garageTexture, int32(screenWidth-150), int32(garage.lane*laneHeight), garage.color)
+	}
+
+	// Draw car
+	rl.DrawTexture(g.car.texture, int32(g.car.xPos), int32(g.car.lane*laneHeight), g.car.color)
+
+	// Display score or game over
+	if g.gameOver {
+		rl.DrawText("You're not an WinRAR :(\nPress Enter to Restart", int32(screenWidth/2-150), int32(screenHeight/2-20), 32, rl.Red)
+	} else {
+		rl.DrawText(fmt.Sprintf("Score: %d", g.score), 10, 10, 20, rl.Black)
+	}
+}
+
+func (g *Game) update() {
+	if g.gameOver {
+		if rl.IsKeyPressed(rl.KeyEnter) {
+			*g = *NewGame()
+		}
+		return
+	}
+
+	g.car.xPos += carSpeed
+
+	// Check if the car has reached the garages
+	if int32(g.car.xPos)+g.car.texture.Width >= screenWidth-100 {
+		garage := g.garages[g.car.lane]
+		if g.car.color == garage.color {
+			rl.PlaySound(autoHappy)
+			g.score++
+			g.car = NewCar()
+		} else {
+			rl.PlaySound(autoSad)
+			g.gameOver = true
+		}
+	}
+
+	// Move car
+	if rl.IsKeyPressed(rl.KeyUp) && g.car.lane > 0 {
+		g.car.lane--
+	} else if (rl.IsKeyPressed(rl.KeyDown) || rl.IsKeyPressed(rl.KeyLeft) || rl.IsKeyPressed(rl.KeyRight)) && g.car.lane < numLanes-1 {
+		g.car.lane++
+	}
+}
 
 func main() {
 	rl.InitWindow(screenWidth, screenHeight, "Dikke Vette Cargame voor Milo")
 	rl.InitAudioDevice()
 	defer rl.CloseAudioDevice()
-	defer rl.CloseWindow()
 
+	// Load assets
 	autoHappy = rl.LoadSound("resources/auto_happy_vob.ogg")
 	autoSad = rl.LoadSound("resources/auto_sad_vob.ogg")
 	autoTexture = rl.LoadTexture("resources/car_200px.png")
+	// changed saturation to 10% to make Raylib tint work well enough, using ImageMagick:
+	// convert garage.png -resize 200x200! -channel A -evaluate multiply 0.5 +channel -modulate 100,25,100 garage_200px.png
+	garageTexture = rl.LoadTexture("resources/garage_200px.png")
+	defer rl.UnloadTexture(autoTexture)
 	defer rl.UnloadSound(autoHappy)
 	defer rl.UnloadSound(autoSad)
-	defer rl.UnloadTexture(autoTexture)
 
-	offset = rl.Vector2{X: float32(screenWidth % SQUARE_SIZE), Y: float32(screenHeight % SQUARE_SIZE)}
+	game := NewGame()
 
-	InitGame()
-
-	rl.SetTargetFPS(FPS_TARGET)
+	rl.SetTargetFPS(60)
 
 	for !rl.WindowShouldClose() {
-		UpdateDrawFrame()
+		rl.BeginDrawing()
+		rl.ClearBackground(rl.RayWhite)
+
+		game.update()
+		game.draw()
+
+		rl.EndDrawing()
 	}
 }
-
-func InitGame() {
-	rand.Seed(time.Now().UnixNano())
-	randomIndex := rand.Intn(int(GARAGE_COUNT))
-
-	gameState.framesCounter = 0
-	gameState.gameOver = false
-	gameState.pause = false
-	gameState.allowMove = false
-	gameState.car = Car{
-		position:  rl.Vector2{X: offset.X / 2, Y: offset.Y/2 + 2*float32(SQUARE_SIZE)},
-		size:      rl.Vector2{X: float32(SQUARE_SIZE), Y: float32(SQUARE_SIZE)},
-		color:     garageColors[randomIndex],
-		direction: 0,
-	}
-	gameState.garages = make([]Garage, GARAGE_COUNT)
-
-	InitGarages()
-}
-
-func UpdateDrawFrame() {
-	UpdateGame()
-	DrawGame()
-}
-
-func UpdateGame() {
-	if !gameState.gameOver {
-		HandlePause()
-		HandleMovement()
-		CheckCollisions()
-		IncrementFrameCounter()
-	} else {
-		HandleRestart()
-	}
-}
-
-func HandlePause() {
-	if rl.IsKeyPressed(int32('P')) {
-		gameState.pause = !gameState.pause
-	}
-}
-
-func HandleMovement() {
-	if !gameState.pause {
-		if rl.IsKeyPressed(rl.KeyUp) && gameState.allowMove && gameState.car.position.Y > 0 {
-			gameState.car.direction = -1
-			gameState.allowMove = false
-		}
-		if (rl.IsKeyPressed(rl.KeyDown) || rl.IsKeyPressed(rl.KeyLeft) || rl.IsKeyPressed(rl.KeyRight)) &&
-			gameState.allowMove &&
-			gameState.car.position.Y < float32(screenHeight-SQUARE_SIZE) {
-			gameState.car.direction = 1
-			gameState.allowMove = false
-		}
-
-		if gameState.framesCounter%(FPS_TARGET/60) == 0 {
-			MoveCar()
-		}
-	}
-}
-
-func MoveCar() {
-	gameState.car.position.X += float32(SQUARE_SIZE) / float32(FPS_TARGET)
-	gameState.car.position.Y += float32(gameState.car.direction * SQUARE_SIZE)
-	gameState.allowMove = true
-	gameState.car.direction = 0
-}
-
-func CheckCollisions() {
-	for i := int32(0); i < GARAGE_COUNT; i++ {
-		if rl.CheckCollisionRecs(
-			rl.Rectangle{X: gameState.car.position.X, Y: gameState.car.position.Y, Width: gameState.car.size.X, Height: gameState.car.size.Y},
-			rl.Rectangle{X: gameState.garages[i].position.X, Y: gameState.garages[i].position.Y, Width: gameState.garages[i].size.X, Height: gameState.garages[i].size.Y},
-		) {
-			HandleCollision(i)
-		}
-	}
-}
-
-func HandleCollision(index int32) {
-	if rl.ColorToInt(gameState.car.color) == rl.ColorToInt(gameState.garages[index].color) {
-		rl.PlaySound(autoHappy)
-		gameState.score++
-		InitGame()
-	} else {
-		rl.PlaySound(autoSad)
-		gameState.gameOver = true
-	}
-}
-
-func IncrementFrameCounter() {
-	gameState.framesCounter++
-}
-
-func HandleRestart() {
-	if rl.IsKeyPressed(rl.KeyEnter) {
-		gameState.score = 0
-		InitGame()
-	}
-}
-
-func DrawGame() {
-	rl.BeginDrawing()
-
-	rl.ClearBackground(rl.DarkGray)
-
-	if !gameState.gameOver {
-		for i := int32(1); i < screenHeight/SQUARE_SIZE+1; i++ {
-			for j := int32(0); j < screenWidth/(SQUARE_SIZE/2); j += 2 {
-				rl.DrawRectangle(
-					int32(j)*((SQUARE_SIZE/2)+int32(offset.X)/2),
-					int32(i*SQUARE_SIZE+int32(offset.Y)/2),
-					SQUARE_SIZE/2,
-					SQUARE_SIZE/8,
-					rl.RayWhite,
-				)
-			}
-		}
-
-		// Draw garages
-		for i := int32(0); i < GARAGE_COUNT; i++ {
-			rl.DrawRectangleRec(
-				rl.Rectangle{X: gameState.garages[i].position.X, Y: gameState.garages[i].position.Y, Width: gameState.garages[i].size.X, Height: gameState.garages[i].size.Y},
-				gameState.garages[i].color,
-			)
-		}
-
-		rl.DrawTextureV(autoTexture, gameState.car.position, gameState.car.color)
-
-		// Draw score
-		rl.DrawText(fmt.Sprintf("Score: %d", gameState.score), 20, 20, 20, rl.RayWhite)
-
-		if gameState.pause {
-			rl.DrawText(
-				"GAME PAUSED",
-				screenWidth/2-rl.MeasureText("GAME PAUSED", 40)/2,
-				screenHeight/2-40,
-				40,
-				rl.Gray,
-			)
-		}
-	} else {
-		rl.DrawText(
-			"A WINRAR IS NOT YOU :(\nPRESS [ENTER] TO PLAY AGAIN",
-			screenWidth/2-rl.MeasureText("A WINRAR IS NOT YOU :(\nPRESS [ENTER] TO PLAY AGAIN", 20)/2,
-			screenHeight/2-50,
-			20,
-			rl.Gray,
-		)
-	}
-
-	rl.EndDrawing()
-}
-
-func InitGarages() {
-	for i := int32(0); i < GARAGE_COUNT; i++ {
-		gameState.garages[i].size = rl.Vector2{X: float32(SQUARE_SIZE), Y: float32(SQUARE_SIZE)}
-		gameState.garages[i].position = rl.Vector2{X: float32(screenWidth - SQUARE_SIZE), Y: float32(i * SQUARE_SIZE)}
-		gameState.garages[i].color = garageColors[i]
-	}
-}
-
