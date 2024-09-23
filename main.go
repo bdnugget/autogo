@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	screenWidth  = 1600
+	screenWidth  = 1300
 	screenHeight = 800
 	numLanes     = 5
 	numGarages   = 5
@@ -98,6 +98,10 @@ func (g *Game) draw() {
 }
 
 func (g *Game) update() {
+	if rl.IsKeyPressed(rl.KeyF) {
+		rl.ToggleFullscreen()
+	}
+
 	if g.gameOver {
 		if rl.IsKeyPressed(rl.KeyEnter) {
 			*g = *NewGame()
