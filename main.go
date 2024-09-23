@@ -90,11 +90,9 @@ func (g *Game) draw() {
 	// Draw car
 	rl.DrawTexture(g.car.texture, int32(g.car.xPos), int32(g.car.lane*laneHeight), g.car.color)
 
-	// Display score or game over
+	rl.DrawText(fmt.Sprintf("Score: %d\nHigh Score: %d", g.score, highScore), 10, 10, 32, rl.DarkGreen)
 	if g.gameOver {
 		rl.DrawText("You're not an WinRAR :(\nPress Enter to Restart", int32(screenWidth/2-150), int32(screenHeight/2-20), 32, rl.Red)
-	} else {
-		rl.DrawText(fmt.Sprintf("Score: %d\nHigh Score: %d", g.score, highScore), 10, 10, 32, rl.DarkGreen)
 	}
 }
 

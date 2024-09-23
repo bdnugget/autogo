@@ -1,5 +1,8 @@
 # autogo
-The silly Raylib cargame I made in C but in Go
+The silly Raylib cargame I made in C but in Go for my champ
+
+## Screenshot
+![Screenshot](./resources/screenshot.png)
 
 
 ### note Garage texture 
