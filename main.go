@@ -32,6 +32,15 @@ type Car struct {
 	xPos    int
 }
 
+func NewCar() Car {
+	return Car{
+		texture: autoTexture,
+		lane:    rand.Intn(numLanes),
+		color:   randomColor(),
+		xPos:    25,
+	}
+}
+
 type Garage struct {
 	lane  int
 	color rl.Color
@@ -42,15 +51,6 @@ type Game struct {
 	garages  [numGarages]Garage
 	score    int
 	gameOver bool
-}
-
-func NewCar() Car {
-	return Car{
-		texture: autoTexture,
-		lane:    rand.Intn(numLanes),
-		color:   randomColor(),
-		xPos:    25,
-	}
 }
 
 func NewGame() *Game {
@@ -123,6 +123,12 @@ func (g *Game) update() {
 	}
 
 	// Move car
+	if touchX := int(rl.GetTouchX()); touchX > 0 {
+		g.car.lane = touchX / (screenWidth / numLanes)
+		// show coordinates and lane number on screen
+		rl.DrawText(fmt.Sprintf("%d, %d", touchX, g.car.lane), 20, 50, 32, rl.Red)
+	}
+
 	if rl.IsKeyPressed(rl.KeyUp) && g.car.lane > 0 {
 		g.car.lane--
 	} else if (rl.IsKeyPressed(rl.KeyDown) || rl.IsKeyPressed(rl.KeyLeft) || rl.IsKeyPressed(rl.KeyRight)) && g.car.lane < numLanes-1 {
