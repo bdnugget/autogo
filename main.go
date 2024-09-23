@@ -8,21 +8,30 @@ import (
 )
 
 const (
-	screenWidth  = 1300
-	screenHeight = 800
-	numLanes     = 5
-	numGarages   = 5
-	carSpeed     = 5
-	laneHeight   = screenHeight / numLanes
+	screenWidth      = 1300
+	screenHeight     = 800
+	numLanes         = 5
+	laneHeight       = screenHeight / numLanes
+	carTextureWidth  = 200
+	carTextureHeight = 200
+	garageWidth      = 200
+	garageHeight     = 200
+	scorePosx        = 10
+	scorePosy        = 10
+	scoreFontSize    = 32
+	gameOverPosx     = screenWidth/2 - 150
+	gameOverPosy     = screenHeight/2 - 20
+	gameOverFontSize = 32
 )
 
 var (
-	garageColors  = [numGarages]rl.Color{rl.Red, rl.Blue, rl.Green, rl.Yellow, rl.Purple}
-	autoHappy     rl.Sound
-	autoSad       rl.Sound
-	autoTexture   rl.Texture2D
-	garageTexture rl.Texture2D
-	highScore     int
+	garageColors   = []rl.Color{rl.Red, rl.Blue, rl.Green, rl.Yellow, rl.Purple}
+	autoHappy      rl.Sound
+	autoSad        rl.Sound
+	autoTexture    rl.Texture2D
+	garageTexture  rl.Texture2D
+	asphaltTexture rl.Texture2D
+	highScore      int
 )
 
 type Car struct {
@@ -30,6 +39,7 @@ type Car struct {
 	lane    int
 	color   rl.Color
 	xPos    int
+	speed   int
 }
 
 func NewCar() Car {
@@ -38,6 +48,7 @@ func NewCar() Car {
 		lane:    rand.Intn(numLanes),
 		color:   randomColor(),
 		xPos:    25,
+		speed:   1,
 	}
 }
 
@@ -48,7 +59,7 @@ type Garage struct {
 
 type Game struct {
 	car      Car
-	garages  [numGarages]Garage
+	garages  [numLanes]Garage
 	score    int
 	gameOver bool
 	debugMsg string
@@ -76,22 +87,23 @@ func randomColor() rl.Color {
 }
 
 func (g Game) draw() {
-	// Draw stripes on the road
-	for i := 0; i < numLanes; i++ {
-		rl.DrawRectangle(0, int32(i*laneHeight), screenWidth, 2, rl.White)
+	for i := 0; i <= screenHeight/laneHeight; i++ {
+		for j := 0; j < screenWidth/int(asphaltTexture.Width); j++ {
+			rl.DrawTexturePro(asphaltTexture, rl.NewRectangle(0, 0, float32(asphaltTexture.Width), float32(asphaltTexture.Height)), rl.NewRectangle(float32(j)*float32(asphaltTexture.Width), float32(i*laneHeight-laneHeight/2), float32(asphaltTexture.Width), float32(asphaltTexture.Height)), rl.Vector2{}, 0, rl.White)
+		}
 	}
 
 	// Draw garages
 	for _, garage := range g.garages {
-		rl.DrawTexture(garageTexture, int32(screenWidth-150), int32(garage.lane*laneHeight), garage.color)
+		rl.DrawTexture(garageTexture, int32(screenWidth-garageWidth), int32(garage.lane*laneHeight), garage.color)
 	}
 
 	// Draw car
 	rl.DrawTexture(g.car.texture, int32(g.car.xPos), int32(g.car.lane*laneHeight), g.car.color)
 
-	rl.DrawText(fmt.Sprintf("Score: %d\nHigh Score: %d", g.score, highScore), 10, 10, 32, rl.DarkGreen)
+	rl.DrawText(fmt.Sprintf("Score: %d\nHigh Score: %d", g.score, highScore), scorePosx, scorePosy, scoreFontSize, rl.DarkGreen)
 	if g.gameOver {
-		rl.DrawText("You're not an WinRAR :(\nPress Enter to Restart", int32(screenWidth/2-150), int32(screenHeight/2-20), 32, rl.Red)
+		rl.DrawText("You're not an WinRAR :(\nPress Enter to Restart", gameOverPosx, gameOverPosy, gameOverFontSize, rl.Red)
 	}
 }
 
@@ -101,16 +113,16 @@ func (g *Game) update() {
 	}
 
 	if g.gameOver {
-		if rl.IsKeyPressed(rl.KeyEnter) {
+		if rl.IsKeyPressed(rl.KeyEnter) || rl.IsKeyPressed(rl.KeyKpEnter) || rl.IsGestureDetected(rl.GestureTap) {
 			*g = NewGame()
 		}
 		return
 	}
 
-	g.car.xPos += carSpeed
+	g.car.xPos += g.car.speed
 
 	// Check if the car has reached the garages
-	if int32(g.car.xPos)+g.car.texture.Width >= screenWidth-100 {
+	if int32(g.car.xPos)+g.car.texture.Width >= screenWidth-garageWidth {
 		garage := g.garages[g.car.lane]
 		if g.car.color == garage.color {
 			rl.PlaySound(autoHappy)
@@ -124,6 +136,8 @@ func (g *Game) update() {
 			g.gameOver = true
 		}
 	}
+
+	g.car.speed = 3 + g.score/5
 
 	// Move car
 	if rl.IsGestureDetected(rl.GestureTap) {
@@ -151,7 +165,10 @@ func main() {
 	autoSad = rl.LoadSound("resources/auto_sad_vob.ogg")
 	autoTexture = rl.LoadTexture("resources/car_200px.png")
 	garageTexture = rl.LoadTexture("resources/garage_200px.png")
+	asphaltTexture = rl.LoadTexture("resources/asphalt.png")
 	defer rl.UnloadTexture(autoTexture)
+	defer rl.UnloadTexture(garageTexture)
+	defer rl.UnloadTexture(asphaltTexture)
 	defer rl.UnloadSound(autoHappy)
 	defer rl.UnloadSound(autoSad)
 
