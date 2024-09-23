@@ -22,6 +22,7 @@ var (
 	autoSad       rl.Sound
 	autoTexture   rl.Texture2D
 	garageTexture rl.Texture2D
+	highScore     int
 )
 
 type Car struct {
@@ -75,6 +76,11 @@ func randomColor() rl.Color {
 }
 
 func (g *Game) draw() {
+	// Draw stripes on the road
+	for i := 0; i < numLanes; i++ {
+		rl.DrawRectangle(0, int32(i*laneHeight), screenWidth, 2, rl.White)
+	}
+
 	// Draw garages
 	for _, garage := range g.garages {
 		rl.DrawRectangle(int32(screenWidth-150), int32(garage.lane*laneHeight), 150, int32(laneHeight), garage.color)
@@ -88,7 +94,7 @@ func (g *Game) draw() {
 	if g.gameOver {
 		rl.DrawText("You're not an WinRAR :(\nPress Enter to Restart", int32(screenWidth/2-150), int32(screenHeight/2-20), 32, rl.Red)
 	} else {
-		rl.DrawText(fmt.Sprintf("Score: %d", g.score), 10, 10, 20, rl.Black)
+		rl.DrawText(fmt.Sprintf("Score: %d\nHigh Score: %d", g.score, highScore), 10, 10, 32, rl.DarkGreen)
 	}
 }
 
@@ -108,6 +114,9 @@ func (g *Game) update() {
 		if g.car.color == garage.color {
 			rl.PlaySound(autoHappy)
 			g.score++
+			if g.score > highScore {
+				highScore = g.score
+			}
 			g.car = NewCar()
 		} else {
 			rl.PlaySound(autoSad)
@@ -132,8 +141,6 @@ func main() {
 	autoHappy = rl.LoadSound("resources/auto_happy_vob.ogg")
 	autoSad = rl.LoadSound("resources/auto_sad_vob.ogg")
 	autoTexture = rl.LoadTexture("resources/car_200px.png")
-	// changed saturation to 10% to make Raylib tint work well enough, using ImageMagick:
-	// convert garage.png -resize 200x200! -channel A -evaluate multiply 0.5 +channel -modulate 100,25,100 garage_200px.png
 	garageTexture = rl.LoadTexture("resources/garage_200px.png")
 	defer rl.UnloadTexture(autoTexture)
 	defer rl.UnloadSound(autoHappy)
@@ -145,7 +152,7 @@ func main() {
 
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
-		rl.ClearBackground(rl.RayWhite)
+		rl.ClearBackground(rl.DarkGray)
 
 		game.update()
 		game.draw()
