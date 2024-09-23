@@ -51,6 +51,7 @@ type Game struct {
 	garages  [numGarages]Garage
 	score    int
 	gameOver bool
+	debugMsg string
 }
 
 func NewGame() *Game {
@@ -123,10 +124,11 @@ func (g *Game) update() {
 	}
 
 	// Move car
-	if touchX := int(rl.GetTouchX()); touchX > 0 {
-		g.car.lane = touchX / (screenWidth / numLanes)
-		// show coordinates and lane number on screen
-		rl.DrawText(fmt.Sprintf("%d, %d", touchX, g.car.lane), 20, 50, 32, rl.Red)
+	if rl.IsGestureDetected(rl.GestureTap) {
+		touchY := int(rl.GetTouchY())
+		lane := touchY / (screenHeight / numLanes)
+		g.debugMsg = fmt.Sprintf("Y: %d, Lane: %d", touchY, lane)
+		g.car.lane = lane
 	}
 
 	if rl.IsKeyPressed(rl.KeyUp) && g.car.lane > 0 {
@@ -134,6 +136,8 @@ func (g *Game) update() {
 	} else if (rl.IsKeyPressed(rl.KeyDown) || rl.IsKeyPressed(rl.KeyLeft) || rl.IsKeyPressed(rl.KeyRight)) && g.car.lane < numLanes-1 {
 		g.car.lane++
 	}
+
+	rl.DrawText(g.debugMsg, 20, 100, 32, rl.Red)
 }
 
 func main() {
